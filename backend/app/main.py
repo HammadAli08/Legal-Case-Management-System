@@ -57,15 +57,27 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Starting Legal AI API...")
     
     try:
-        # Load Classification Models
+        # Load Classification Models (optional - may not exist in production)
         logger.info("📦 Loading classification models...")
-        classification_pipeline = load_pickle_file(settings.CLASSIFICATION_PIPELINE)
-        classification_label_encoder = load_pickle_file(settings.CLASSIFICATION_ENCODER)
+        try:
+            classification_pipeline = load_pickle_file(settings.CLASSIFICATION_PIPELINE)
+            classification_label_encoder = load_pickle_file(settings.CLASSIFICATION_ENCODER)
+            logger.info("✓ Classification models loaded")
+        except FileNotFoundError:
+            logger.warning("⚠ Classification models not found - skipping")
+            classification_pipeline = None
+            classification_label_encoder = None
         
-        # Load Prioritization Models
+        # Load Prioritization Models (optional - may not exist in production)
         logger.info("📦 Loading prioritization models...")
-        prioritization_pipeline = load_pickle_file(settings.PRIORITIZATION_PIPELINE)
-        prioritization_label_encoder = load_pickle_file(settings.PRIORITIZATION_ENCODER)
+        try:
+            prioritization_pipeline = load_pickle_file(settings.PRIORITIZATION_PIPELINE)
+            prioritization_label_encoder = load_pickle_file(settings.PRIORITIZATION_ENCODER)
+            logger.info("✓ Prioritization models loaded")
+        except FileNotFoundError:
+            logger.warning("⚠ Prioritization models not found - skipping")
+            prioritization_pipeline = None
+            prioritization_label_encoder = None
         
         # Initialize RAG Chain
         logger.info("🔗 Initializing RAG chain...")
@@ -225,6 +237,13 @@ async def classify_case(request: CaseClassificationRequest):
                 detail="Case text cannot be empty"
             )
         
+        # Check if model is loaded
+        if classification_pipeline is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Classification model not available"
+            )
+        
         # Preprocess and predict
         cleaned_text = preprocess_text(request.text)
         prediction_encoded = classification_pipeline.predict([cleaned_text])
@@ -253,6 +272,13 @@ async def prioritize_case(request: CasePrioritizationRequest):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Case text cannot be empty"
+            )
+        
+        # Check if model is loaded
+        if prioritization_pipeline is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Prioritization model not available"
             )
         
         # Preprocess and predict
