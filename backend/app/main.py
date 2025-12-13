@@ -19,6 +19,7 @@ from langchain.chains import create_retrieval_chain, create_history_aware_retrie
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.embeddings.base import Embeddings
 
 # Local imports
 from app.config import get_settings
@@ -42,6 +43,13 @@ classification_label_encoder = None
 prioritization_pipeline = None
 prioritization_label_encoder = None
 rag_chain = None
+
+# Dummy embeddings to satisfy dense retrieval without Python embeddings
+class DummyEmbeddings(Embeddings):
+    def embed_documents(self, texts):
+        return [[0.0]] * len(texts)
+    def embed_query(self, text):
+        return [0.0]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -76,7 +84,7 @@ async def lifespan(app: FastAPI):
         vector_store = QdrantVectorStore(
             client=client,
             collection_name=settings.QDRANT_COLLECTION,
-            embedding=None  # no local embedding computation
+            embedding=DummyEmbeddings()  # dummy to satisfy dense mode
         )
 
         base_retriever = vector_store.as_retriever(search_kwargs={"k": 5})
