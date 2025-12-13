@@ -1,7 +1,7 @@
-"""
-Legal AI FastAPI Backend
+""" Legal AI FastAPI Backend
 Production-ready API for legal case management
 """
+
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -10,12 +10,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
-import requests # Not strictly used in routes but kept for potential future use or debugging
 
-# LangChain imports (Updated for modularity)
+# LangChain imports
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
-from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings # Using community for HF service
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
 from langchain.chains import create_retrieval_chain, create_history_aware_retriever
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -31,14 +30,14 @@ from app.models import (
 )
 from app.utils import preprocess_text, load_pickle_file
 
-# Configure logging
+# Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Settings
 settings = get_settings()
 
-# Global variables for models
+# Global models
 classification_pipeline = None
 classification_label_encoder = None
 prioritization_pipeline = None
@@ -47,124 +46,102 @@ rag_chain = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load models on startup, cleanup on shutdown"""
     global classification_pipeline, classification_label_encoder
     global prioritization_pipeline, prioritization_label_encoder
     global rag_chain
-    
+
     logger.info("🚀 Starting Legal AI API...")
-    
+
     try:
-        # Load Classification Models
-        logger.info("📦 Loading classification models...")
+        # Load classification models
         classification_pipeline = load_pickle_file(settings.CLASSIFICATION_PIPELINE)
         classification_label_encoder = load_pickle_file(settings.CLASSIFICATION_ENCODER)
-        logger.info("✓ Classification models loaded")
-        
-        # Load Prioritization Models
-        logger.info("📦 Loading prioritization models...")
+
+        # Load prioritization models
         prioritization_pipeline = load_pickle_file(settings.PRIORITIZATION_PIPELINE)
         prioritization_label_encoder = load_pickle_file(settings.PRIORITIZATION_ENCODER)
-        logger.info("✓ Prioritization models loaded")
-        
-        # Initialize RAG Chain
-        logger.info("🔗 Initializing RAG chain...")
-        
-        # Embeddings (using HuggingFace Inference API)
-        embeddings = HuggingFaceInferenceAPIEmbeddings(
-            api_key=settings.HUGGINGFACE_API_KEY,
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
+
+        # Initialize RAG chain
+        embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            huggingface_api_key=settings.HUGGINGFACE_API_KEY
         )
-        
-        # Qdrant client
+
         client = QdrantClient(
             url=settings.QDRANT_URL,
             api_key=settings.QDRANT_API_KEY
         )
-        
-        # Vector store
-        # Note: The original code used QdrantVectorStore, which is correct for qdrant>=1.9.0
+
         vector_store = QdrantVectorStore(
             client=client,
             collection_name=settings.QDRANT_COLLECTION,
             embedding=embeddings
         )
-        
-        # Retriever (skip reranking to avoid heavy dependencies)
+
         base_retriever = vector_store.as_retriever(search_kwargs={"k": 5})
-        
-        # LLM
+
         llm = ChatGroq(
             model_name=settings.GROQ_MODEL,
             api_key=settings.GROQ_API_KEY,
             temperature=0.1
         )
-        
-        # Contextualize question prompt
+
         contextualize_q_system_prompt = (
-            "Given a chat history and the latest user question which might reference "
-            "context in the chat history, formulate a standalone question which can be "
-            "understood without the chat history. Do NOT answer the question, just "
-            "reformulate it if needed."
+            "Given a chat history and the latest user question, formulate a standalone "
+            "question which can be understood without chat history. Do NOT answer it."
         )
         contextualize_q_prompt = ChatPromptTemplate.from_messages([
             ("system", contextualize_q_system_prompt),
             MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
+            ("human", "{input}")
         ])
+
         history_aware_retriever = create_history_aware_retriever(
             llm, base_retriever, contextualize_q_prompt
         )
-        
-        # QA prompt
+
         qa_system_prompt = """
         You are a Senior Legal Research Assistant with forensic precision.
-        
+
         CRITICAL INSTRUCTIONS:
         1. Zero External Knowledge: Answer ONLY based on provided Context
         2. No Hallucination: If not in context, state clearly
-        3. Evidence-Based: Support every claim with specific references
-        4. Formal Tone: Maintain professional, objective language
-        
+        3. Evidence-Based: Support every claim with references
+        4. Formal Tone: Professional and objective
+
         OUTPUT FORMAT:
-        
+
         Executive Summary:
         [2-3 sentence direct answer]
-        
+
         Relevant Precedents & Analysis:
         • [Case/Section]: [Key holding]
-        • [Case/Section]: [Key holding]
-        
+
         Conclusion:
-        [Final summary based on context]
-        
+        [Summary based on context]
+
         CONTEXT:
         {context}
         """
         qa_prompt = ChatPromptTemplate.from_messages([
             ("system", qa_system_prompt),
             MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
+            ("human", "{input}")
         ])
-        
+
         question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-        rag_chain = create_retrieval_chain(
-            history_aware_retriever, 
-            question_answer_chain
-        )
-        
+
+        rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+
         logger.info("✅ All models loaded successfully!")
-        
+
     except Exception as e:
         logger.error(f"❌ Error loading models: {str(e)}")
-        # In a production-ready application, failing the startup is often desired 
-        # if core components (like ML models or RAG) cannot load.
         raise
-    
+
     yield
-    
-    # Cleanup
     logger.info("🔄 Shutting down...")
+
 
 # Initialize FastAPI
 app = FastAPI(
@@ -174,16 +151,16 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS Middleware
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
-# Exception handlers
+# Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     logger.error(f"Global exception: {str(exc)}")
@@ -192,147 +169,60 @@ async def global_exception_handler(request, exc):
         content={"detail": "Internal server error occurred"}
     )
 
-# Routes
 
+# Routes
 @app.get("/", response_model=HealthResponse)
 async def health_check():
-    """Health check endpoint"""
-    return HealthResponse(
-        status="online",
-        message="Legal AI API is running",
-        version=settings.API_VERSION
-    )
+    return HealthResponse(status="online", message="Legal AI API running", version=settings.API_VERSION)
 
 @app.get("/health", response_model=HealthResponse)
 async def health():
-    """Detailed health check"""
-    return HealthResponse(
-        status="healthy",
-        message="All systems operational",
-        version=settings.API_VERSION
-    )
+    return HealthResponse(status="healthy", message="All systems operational", version=settings.API_VERSION)
 
 @app.post("/api/classify", response_model=CaseClassificationResponse)
 async def classify_case(request: CaseClassificationRequest):
-    """Classify a legal case into categories"""
-    try:
-        if not request.text.strip():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Case text cannot be empty"
-            )
-        
-        # Preprocess and predict
-        cleaned_text = preprocess_text(request.text)
-        prediction_encoded = classification_pipeline.predict([cleaned_text])
-        prediction_label = classification_label_encoder.inverse_transform(
-            prediction_encoded
-        )[0]
-        
-        logger.info(f"Classification: {prediction_label}")
-        
-        return CaseClassificationResponse(category=prediction_label)
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Classification error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Classification failed: {str(e)}"
-        )
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="Case text cannot be empty")
+    cleaned_text = preprocess_text(request.text)
+    prediction_encoded = classification_pipeline.predict([cleaned_text])
+    prediction_label = classification_label_encoder.inverse_transform(prediction_encoded)[0]
+    return CaseClassificationResponse(category=prediction_label)
 
 @app.post("/api/prioritize", response_model=CasePrioritizationResponse)
 async def prioritize_case(request: CasePrioritizationRequest):
-    """Determine priority level of a legal case"""
-    try:
-        if not request.text.strip():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Case text cannot be empty"
-            )
-        
-        # Preprocess and predict
-        cleaned_text = preprocess_text(request.text)
-        prediction_encoded = prioritization_pipeline.predict([cleaned_text])
-        prediction_label = prioritization_label_encoder.inverse_transform(
-            prediction_encoded
-        )[0]
-        
-        logger.info(f"Priority: {prediction_label}")
-        
-        return CasePrioritizationResponse(priority=prediction_label)
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Prioritization error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Prioritization failed: {str(e)}"
-        )
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="Case text cannot be empty")
+    cleaned_text = preprocess_text(request.text)
+    prediction_encoded = prioritization_pipeline.predict([cleaned_text])
+    prediction_label = prioritization_label_encoder.inverse_transform(prediction_encoded)[0]
+    return CasePrioritizationResponse(priority=prediction_label)
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """Legal research assistant with RAG"""
-    try:
-        if not request.message.strip():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Message cannot be empty"
-            )
-        
-        # Check if RAG chain is initialized
-        if rag_chain is None:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="RAG chain is not initialized. Check server logs."
-            )
-            
-        # Convert chat history to LangChain format
-        chat_history = []
-        for msg in request.chat_history:
-            if msg.role == "user":
-                chat_history.append(HumanMessage(content=msg.content))
-            elif msg.role == "assistant":
-                chat_history.append(AIMessage(content=msg.content))
-        
-        # Invoke RAG chain
-        response = rag_chain.invoke({
-            "input": request.message,
-            "chat_history": chat_history
-        })
-        
-        # Extract sources
-        sources = []
-        # The result from create_retrieval_chain has the documents under the "context" key
-        for i, doc in enumerate(response.get("context", [])): 
-            content = getattr(doc, 'page_content', "No content available")
-            metadata = getattr(doc, 'metadata', {})
-            
-            sources.append(SourceDocument(
-                index=i + 1,
-                content=content[:300] + "..." if len(content) > 300 else content,
-                metadata=metadata
-            ))
-        
-        logger.info(f"Chat response generated with {len(sources)} sources")
-        
-        return ChatResponse(
-            answer=response['answer'],
-            sources=sources
+    if not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    chat_history = [
+        HumanMessage(content=m.content) if m.role == "user" else AIMessage(content=m.content)
+        for m in request.chat_history
+    ]
+
+    response = rag_chain.invoke({"input": request.message, "chat_history": chat_history})
+
+    sources = [
+        SourceDocument(
+            index=i + 1,
+            content=(getattr(doc, "page_content", "No content")[:300] + "..." if len(getattr(doc, "page_content", "")) > 300 else getattr(doc, "page_content", "")),
+            metadata=getattr(doc, "metadata", {})
         )
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Chat error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Chat failed: {str(e)}"
-        )
+        for i, doc in enumerate(response.get("context", []))
+    ]
+
+    return ChatResponse(answer=response["answer"], sources=sources)
+
 
 if __name__ == "__main__":
+    import os
     import uvicorn
-    # The uvicorn import is required here for the __main__ block
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
