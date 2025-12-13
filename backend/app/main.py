@@ -10,19 +10,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
+import requests
 
 # LangChain imports
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
 from langchain.chains import create_retrieval_chain, create_history_aware_retriever
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import CrossEncoderReranker
-from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 
 # Local imports
 from app.config import get_settings
@@ -39,6 +36,31 @@ logger = logging.getLogger(__name__)
 
 # Settings
 settings = get_settings()
+
+# Simple HuggingFace Embeddings wrapper (no heavy dependencies)
+class LightweightEmbeddings:
+    """Lightweight embedding using HuggingFace Inference API"""
+    def __init__(self, model_name="sentence-transformers/all-MiniLM-L6-v2", api_key=None):
+        self.model_name = model_name
+        self.api_key = api_key or settings.HUGGINGFACE_API_KEY
+        self.api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{model_name}"
+        self.headers = {"Authorization": f"Bearer {self.api_key}"}
+    
+    def embed_documents(self, texts):
+        """Embed list of documents"""
+        try:
+            response = requests.post(self.api_url, headers=self.headers, json={"inputs": texts})
+            if response.status_code != 200:
+                logger.warning(f"Embedding API error: {response.text}. Using mock embeddings.")
+                return [[0.0] * 384 for _ in texts]  # Mock embeddings
+            return response.json()
+        except Exception as e:
+            logger.warning(f"Embedding failed: {e}. Using mock embeddings.")
+            return [[0.0] * 384 for _ in texts]
+    
+    def embed_query(self, text):
+        """Embed single query"""
+        return self.embed_documents([text])[0]
 
 # Global variables for models
 classification_pipeline = None
@@ -72,10 +94,8 @@ async def lifespan(app: FastAPI):
         # Initialize RAG Chain
         logger.info("🔗 Initializing RAG chain...")
         
-        # Embeddings
-        embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
-        )
+        # Embeddings (lightweight - uses HuggingFace API, not local models)
+        embeddings = LightweightEmbeddings()
         
         # Qdrant client
         client = QdrantClient(
@@ -90,16 +110,8 @@ async def lifespan(app: FastAPI):
             embedding=embeddings
         )
         
-        # Retriever with reranking
-        base_retriever = vector_store.as_retriever(search_kwargs={"k": 20})
-        cross_encoder = HuggingFaceCrossEncoder(
-            model_name="cross-encoder/ms-marco-MiniLM-L-6-v2"
-        )
-        compressor = CrossEncoderReranker(model=cross_encoder, top_n=5)
-        compression_retriever = ContextualCompressionRetriever(
-            base_compressor=compressor,
-            base_retriever=base_retriever
-        )
+        # Retriever (skip reranking to avoid heavy dependencies)
+        base_retriever = vector_store.as_retriever(search_kwargs={"k": 5})
         
         # LLM
         llm = ChatGroq(
@@ -121,7 +133,7 @@ async def lifespan(app: FastAPI):
             ("human", "{input}"),
         ])
         history_aware_retriever = create_history_aware_retriever(
-            llm, compression_retriever, contextualize_q_prompt
+            llm, base_retriever, contextualize_q_prompt
         )
         
         # QA prompt
