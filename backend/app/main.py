@@ -10,12 +10,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
-import requests
+import requests # Not strictly used in routes but kept for potential future use or debugging
 
-# LangChain imports
+# LangChain imports (Updated for modularity)
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings # Using community for HF service
 from langchain_groq import ChatGroq
 from langchain.chains import create_retrieval_chain, create_history_aware_retriever
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -70,10 +70,10 @@ async def lifespan(app: FastAPI):
         # Initialize RAG Chain
         logger.info("🔗 Initializing RAG chain...")
         
-        # Embeddings (using HuggingFace Inference API - no local models needed)
-        embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            huggingface_api_key=settings.HUGGINGFACE_API_KEY
+        # Embeddings (using HuggingFace Inference API)
+        embeddings = HuggingFaceInferenceAPIEmbeddings(
+            api_key=settings.HUGGINGFACE_API_KEY,
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
         
         # Qdrant client
@@ -83,6 +83,7 @@ async def lifespan(app: FastAPI):
         )
         
         # Vector store
+        # Note: The original code used QdrantVectorStore, which is correct for qdrant>=1.9.0
         vector_store = QdrantVectorStore(
             client=client,
             collection_name=settings.QDRANT_COLLECTION,
@@ -156,6 +157,8 @@ async def lifespan(app: FastAPI):
         
     except Exception as e:
         logger.error(f"❌ Error loading models: {str(e)}")
+        # In a production-ready application, failing the startup is often desired 
+        # if core components (like ML models or RAG) cannot load.
         raise
     
     yield
@@ -190,6 +193,7 @@ async def global_exception_handler(request, exc):
     )
 
 # Routes
+
 @app.get("/", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint"""
@@ -278,6 +282,13 @@ async def chat(request: ChatRequest):
                 detail="Message cannot be empty"
             )
         
+        # Check if RAG chain is initialized
+        if rag_chain is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="RAG chain is not initialized. Check server logs."
+            )
+            
         # Convert chat history to LangChain format
         chat_history = []
         for msg in request.chat_history:
@@ -294,7 +305,8 @@ async def chat(request: ChatRequest):
         
         # Extract sources
         sources = []
-        for i, doc in enumerate(response.get("context", [])):
+        # The result from create_retrieval_chain has the documents under the "context" key
+        for i, doc in enumerate(response.get("context", [])): 
             content = getattr(doc, 'page_content', "No content available")
             metadata = getattr(doc, 'metadata', {})
             
@@ -322,4 +334,5 @@ async def chat(request: ChatRequest):
 
 if __name__ == "__main__":
     import uvicorn
+    # The uvicorn import is required here for the __main__ block
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
