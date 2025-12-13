@@ -3,6 +3,13 @@
 .gitignore
 .github
 
+# Data & Training (notebooks, CSVs - keep local only)
+Case Cateogarization/
+Case Categorization/
+Case Prioritization/
+*.ipynb
+Final_Dataset*.csv
+
 # Environment
 .env
 .env.*
@@ -26,3 +33,8 @@ Thumbs.db
 # Misc
 *.log
 .cache/
+README.md
+*.md
+Dockerfile
+docker-compose.yml
+railway.json

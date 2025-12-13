@@ -12,6 +12,13 @@
 *~
 .DS_Store
 
+# Data & Training (keep local only, not in git)
+Case Cateogarization/
+Case Categorization/
+Case Prioritization/
+*.ipynb
+*.csv
+
 # Python
 __pycache__/
 *.py[cod]
