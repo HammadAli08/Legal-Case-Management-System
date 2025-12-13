@@ -19,7 +19,7 @@ from langchain.chains import create_retrieval_chain, create_history_aware_retrie
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.embeddings.base import Embeddings
+from langchain_core.embeddings import Embeddings 
 
 # Local imports
 from app.config import get_settings
@@ -35,6 +35,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Settings
+# This call now safely loads all variables from the .env file.
 settings = get_settings()
 
 # Global variables for models
@@ -46,10 +47,12 @@ rag_chain = None
 
 # Dummy embeddings to satisfy dense retrieval without Python embeddings
 class DummyEmbeddings(Embeddings):
+    """Minimal implementation of Embeddings abstract class."""
+    # Assuming the vector dimension of the Qdrant index is 384 (common for MiniLM)
     def embed_documents(self, texts):
-        return [[0.0]] * len(texts)
+        return [[0.0] * 384] * len(texts)
     def embed_query(self, text):
-        return [0.0]
+        return [0.0] * 384
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -76,6 +79,7 @@ async def lifespan(app: FastAPI):
         # Initialize RAG Chain (torch-free)
         logger.info("🔗 Initializing RAG chain...")
 
+        # --- QDRANT INITIALIZATION USING SETTINGS ---
         client = QdrantClient(
             url=settings.QDRANT_URL,
             api_key=settings.QDRANT_API_KEY
@@ -84,30 +88,45 @@ async def lifespan(app: FastAPI):
         vector_store = QdrantVectorStore(
             client=client,
             collection_name=settings.QDRANT_COLLECTION,
-            embedding=DummyEmbeddings()  # dummy to satisfy dense mode
+            embedding=DummyEmbeddings() 
         )
 
         base_retriever = vector_store.as_retriever(search_kwargs={"k": 5})
 
+        # --- GROQ INITIALIZATION USING SETTINGS ---
         llm = ChatGroq(
             model_name=settings.GROQ_MODEL,
-            api_key=settings.GROQ_API_KEY,
+            api_key=settings.GROQ_API_KEY, # Fetched from settings
             temperature=0.1
         )
-
-        # Minimal history-aware retriever
+        
+        # --- LangChain Chain Setup ---
+        contextualize_q_prompt = ChatPromptTemplate.from_messages([
+            ("system", "Given the chat history and the user's latest question, generate a standalone question."),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}"),
+        ])
+        
         history_aware_retriever = create_history_aware_retriever(
-            llm, base_retriever, None
+            llm, base_retriever, contextualize_q_prompt
         )
 
-        # Minimal QA chain
-        question_answer_chain = create_stuff_documents_chain(llm, None)
+        qa_prompt = ChatPromptTemplate.from_messages([
+            ("system", "Answer the user's question only based on the following context: {context}"),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}"),
+        ])
+        
+        question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+        
         rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
         logger.info("✅ All models loaded successfully!")
 
     except Exception as e:
         logger.error(f"❌ Error loading models: {str(e)}")
+        # Note: If the RAG setup fails here (e.g., Qdrant connection issue), 
+        # the app will not start, which is a good fail-safe for production.
         raise
 
     yield
@@ -230,6 +249,13 @@ async def chat(request: ChatRequest):
                 chat_history.append(HumanMessage(content=msg.content))
             elif msg.role == "assistant":
                 chat_history.append(AIMessage(content=msg.content))
+
+        # Check if rag_chain was successfully initialized during lifespan
+        if rag_chain is None:
+             raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="RAG service is unavailable. Check server startup logs."
+            )
 
         response = rag_chain.invoke({
             "input": request.message,
