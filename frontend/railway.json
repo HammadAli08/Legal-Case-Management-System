@@ -1,4 +1,6 @@
 {
-  "builder": "dockerfile",
-  "dockerfilePath": "Dockerfile"
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "dockerfile"
+  }
 }
