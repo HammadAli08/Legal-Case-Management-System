@@ -19,11 +19,11 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str
     GROQ_MODEL: str = "openai/gpt-oss-20b"
     
-    # ML Model Paths
-    CLASSIFICATION_PIPELINE: str = "Case Classification/voting_pipeline.pkl"
-    CLASSIFICATION_ENCODER: str = "Case Classification/label_encoder.pkl"
-    PRIORITIZATION_PIPELINE: str = "Case Prioritization/stacking_pipeline.pkl"
-    PRIORITIZATION_ENCODER: str = "Case Prioritization/label_encoder.pkl"
+    # ML Model Paths (relative to backend directory)
+    CLASSIFICATION_PIPELINE: str = "models/case_classification/voting_pipeline.pkl"
+    CLASSIFICATION_ENCODER: str = "models/case_classification/label_encoder.pkl"
+    PRIORITIZATION_PIPELINE: str = "models/case_prioritization/stacking_pipeline.pkl"
+    PRIORITIZATION_ENCODER: str = "models/case_prioritization/label_encoder.pkl"
     
     class Config:
         env_file = ".env"
