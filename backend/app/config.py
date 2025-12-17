@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import List, Any
+from typing import List, Any, Union
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     
     # --- CORS ---
     # In a production environment, you should replace ["*"] with a list of specific origins.
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://localhost:5173"]
 
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
