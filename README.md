@@ -1,100 +1,155 @@
-# Legal Case Management System
+# Legal AI - Case Management System
 
-A full‑stack app (FastAPI backend + React/Vite frontend) for legal case management with RAG-enabled chat, classification, and prioritization.
+<div align="center">
 
-This repository is prepared for production deployment:
-- Backend: Dockerized FastAPI app (root `Dockerfile`) — deploy on Railway
-- Frontend: Vite/React app (in `frontend/`) — deploy on Vercel or any static host
+![Legal AI](https://img.shields.io/badge/Legal%20AI-Case%20Management-2c666e?style=for-the-badge)
+![React](https://img.shields.io/badge/React-18.2-61dafb?style=for-the-badge&logo=react)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi)
+![Vercel](https://img.shields.io/badge/Vercel-Ready-black?style=for-the-badge&logo=vercel)
 
-Quick links
-- Backend code: `backend/` (FastAPI app)
-- Frontend code: `frontend/` (Vite + React)
-- Root Dockerfile: `./Dockerfile` (builds backend)
-- Deployment guide: `DEPLOYMENT.md`
+A stunning, production-ready legal case management system powered by AI. Features ML-based case classification, priority assessment, and RAG-powered legal research assistant.
 
-Requirements
-- Python 3.11+ (backend)
-- Node.js 18+ (frontend local dev)
-- Docker (optional, for building images locally)
+</div>
 
-Environment variables (required for production)
+---
 
-Backend (Railway) - add these in Railway Variables:
-```
-GROQ_API_KEY=your_groq_key
-HUGGINGFACE_API_KEY=your_hf_token
-QDRANT_URL=https://<your-qdrant-cluster>
-QDRANT_API_KEY=your_qdrant_api_key
-FASTAPI_ENV=production
-ALLOWED_ORIGINS=https://your-frontend-domain
-```
+## ✨ Features
 
-Frontend (Vercel) - add env var in Vercel project settings:
-```
-VITE_API_URL=https://your-backend-url
-```
+- **🏷️ Case Classification** - AI-powered categorization (Civil, Criminal, Constitutional)
+- **⚡ Priority Assessment** - Smart urgency level detection (High, Medium, Low)
+- **💬 Legal Assistant** - RAG-based chat for precedent research
+- **🎨 Premium UI** - Modern glassmorphism design with smooth animations
+- **📱 Responsive** - Works beautifully on all devices
 
-Local development
+---
 
-Backend
-```bash
-# create and activate venv
-python -m venv .venv
-source .venv/bin/activate
+## 🚀 Quick Start
 
-# install
-pip install -r backend/requirements.txt
+### Frontend (Vercel Deployment)
 
-# run
-cd backend
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-# open http://localhost:8000/docs
-```
-
-Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
-# open http://localhost:5173 (or the port shown by Vite)
 ```
 
-Build & Docker (optional)
+**Deploy to Vercel:**
+1. Push to GitHub
+2. Import project in [Vercel](https://vercel.com)
+3. Set root directory to `frontend`
+4. Add environment variable: `VITE_API_URL=https://your-backend-url`
+5. Deploy!
 
-Build backend image locally (root Dockerfile builds backend):
+### Backend (Railway Deployment)
+
 ```bash
-docker build -t legal-ai-backend:local .
-docker run -e GROQ_API_KEY=... -e HUGGINGFACE_API_KEY=... -e QDRANT_URL=... -e QDRANT_API_KEY=... -p 8000:8000 legal-ai-backend:local
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 ```
 
-Build frontend for static hosting
-```bash
-cd frontend
-npm ci
-npm run build
-# serve dist/ with any static server or Dockerfile provided
+**Deploy to Railway:**
+1. Connect GitHub repo to [Railway](https://railway.app)
+2. Use root `Dockerfile`
+3. Add environment variables (see below)
+4. Deploy!
+
+---
+
+## 🔧 Environment Variables
+
+### Backend (Railway)
+```env
+GROQ_API_KEY=your_groq_key
+HUGGINGFACE_API_KEY=your_hf_token
+QDRANT_URL=https://your-qdrant-cluster
+QDRANT_API_KEY=your_qdrant_api_key
+FASTAPI_ENV=production
+ALLOWED_ORIGINS=https://your-vercel-domain
 ```
 
-Deployment (summary)
-- Backend: Deploy to Railway using the root `Dockerfile`. Add required env vars in Railway -> Variables. Test `/health` and `/docs`.
-- Frontend: Deploy to Vercel. Choose `frontend` as root when importing the repo and set `VITE_API_URL` to your Railway backend URL.
-
-Useful commands
-```
-# run backend tests (if any)
-# run frontend build locally to validate
-cd frontend && npm run build
+### Frontend (Vercel)
+```env
+VITE_API_URL=https://your-railway-backend-url
 ```
 
-Troubleshooting
-- If Railway build fails: check logs in Railway dashboard, ensure Dockerfile present at root, and all required env vars are set.
-- If frontend cannot connect to API: confirm `VITE_API_URL` and `ALLOWED_ORIGINS` match exactly (no trailing slash).
+---
 
-Next steps (optional)
-- Add GitHub Actions to auto-build Docker images and notify on failure
-- Add monitoring (Sentry, Railway metrics)
-- Configure custom domains on Vercel / Railway
+## 📁 Project Structure
 
-License & contact
-- Repository owner: `HammadAli08`
-- For questions, open an issue in the repo or ask here.
+```
+legal-ai-production/
+├── frontend/              # React + Vite + TailwindCSS
+│   ├── src/
+│   │   ├── components/   # React components
+│   │   ├── services/     # API services
+│   │   └── index.css     # Premium styling
+│   ├── vercel.json       # Vercel configuration
+│   └── package.json
+├── backend/              # FastAPI
+│   ├── app/
+│   │   ├── main.py       # API endpoints
+│   │   ├── config.py     # Settings
+│   │   ├── models.py     # Pydantic models
+│   │   └── utils.py      # Utilities
+│   ├── models/           # ML models (.pkl)
+│   └── requirements.txt
+├── Dockerfile            # Backend Docker config
+└── README.md
+```
+
+---
+
+## 🎨 Design Features
+
+- **Glassmorphism** - Frosted glass effects throughout
+- **Gradient Accents** - Beautiful color transitions
+- **Micro-animations** - Smooth, subtle interactions
+- **Dark Theme** - Easy on the eyes, professional look
+- **Google Fonts** - Inter + Playfair Display typography
+
+---
+
+## 📝 API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Health check |
+| `/health` | GET | System status |
+| `/api/classify` | POST | Classify case type |
+| `/api/prioritize` | POST | Determine priority |
+| `/api/chat` | POST | Legal assistant chat |
+
+---
+
+## 🛠️ Tech Stack
+
+**Frontend:**
+- React 18
+- Vite
+- TailwindCSS
+- Lucide Icons
+- Axios
+
+**Backend:**
+- FastAPI
+- LangChain
+- Qdrant (Vector DB)
+- Groq LLM
+- scikit-learn
+
+---
+
+## 📄 License
+
+MIT © 2024 HammadAli08
+
+---
+
+<div align="center">
+
+**Built with ❤️ for the legal profession**
+
+</div>
