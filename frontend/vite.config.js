@@ -8,7 +8,7 @@ export default defineConfig({
         host: true,
         proxy: {
             '/api': {
-                target: 'http://localhost:8000',
+                target: process.env.VITE_API_URL || 'http://localhost:8000',
                 changeOrigin: true,
             }
         }
@@ -16,6 +16,18 @@ export default defineConfig({
     build: {
         outDir: 'dist',
         sourcemap: false,
-        minify: 'terser'
+        minify: 'esbuild',
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    vendor: ['react', 'react-dom'],
+                    icons: ['lucide-react']
+                }
+            }
+        }
+    },
+    define: {
+        // This makes Vite handle environment variables properly
+        'process.env': {}
     }
 })
