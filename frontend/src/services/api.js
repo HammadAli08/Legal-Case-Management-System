@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Fallback to the live Railway backend if env var is missing
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://legal-case-management-system-production-1f69.up.railway.app';
+// Fallback to relative path (Vercel Proxy) if env var is missing
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -36,7 +36,7 @@ api.interceptors.response.use(
 export const legalAIService = {
     // Health check
     healthCheck: async () => {
-        const response = await api.get('/');
+        const response = await api.get('/health');
         return response.data;
     },
 
