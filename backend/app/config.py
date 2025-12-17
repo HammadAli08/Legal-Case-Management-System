@@ -1,5 +1,6 @@
 from functools import lru_cache
-from typing import List
+from typing import List, Any
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -18,7 +19,16 @@ class Settings(BaseSettings):
     
     # --- CORS ---
     # In a production environment, you should replace ["*"] with a list of specific origins.
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"] 
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def parse_allowed_origins(cls, v: Any) -> List[str]:
+        if isinstance(v, str) and not v.startswith("["):
+            return [origin.strip() for origin in v.split(",")]
+        elif isinstance(v, list):
+            return v
+        return v
     
     # --- Qdrant Configuration (Required Fields) ---
     QDRANT_URL: str
