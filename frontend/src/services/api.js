@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Fallback to the live Railway backend if env var is missing
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://legal-case-management-system-production-1f69.up.railway.app';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
