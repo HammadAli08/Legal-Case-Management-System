@@ -1,4 +1,4 @@
-# Use GitHub Container Registry mirror (more reliable than Docker Hub)
+# Use GitHub Container Registry mirror
 FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
 WORKDIR /app
@@ -13,6 +13,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend code
 COPY backend .
 
-EXPOSE 8000
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Don't hardcode port. Use $PORT environment variable provided by Railway (defaults to 8000)
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
