@@ -127,7 +127,8 @@ async def lifespan(app: FastAPI):
         logger.error(f"❌ Error loading models: {str(e)}")
         # Note: If the RAG setup fails here (e.g., Qdrant connection issue), 
         # the app will not start, which is a good fail-safe for production.
-        raise
+        # raise  <-- Commented out to prevent crash on missing keys
+        logger.warning("⚠️ Continuing startup despite model loading errors. Some features may not work.")
 
     yield
 
