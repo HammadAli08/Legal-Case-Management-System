@@ -12,7 +12,7 @@
             "destination": "https://legal-case-management-system-production-1f69.up.railway.app/health"
         },
         {
-            "source": "/(.*)",
+            "source": "/((?!api|health|favicon.png|assets/).*)",
             "destination": "/index.html"
         }
     ],
