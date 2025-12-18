@@ -5,6 +5,7 @@ class HealthResponse(BaseModel):
     status: str
     message: str
     version: str
+    details: Optional[dict] = None
 
 class CaseClassificationRequest(BaseModel):
     text: str = Field(..., min_length=10, description="Case text to classify")

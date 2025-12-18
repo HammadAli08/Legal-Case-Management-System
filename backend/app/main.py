@@ -167,15 +167,30 @@ async def health_check():
     return HealthResponse(
         status="online",
         message="Legal AI API is running",
-        version=settings.API_VERSION
+        version=settings.API_VERSION,
+        details={
+            "classification": classification_pipeline is not None,
+            "prioritization": prioritization_pipeline is not None,
+            "rag": rag_chain is not None
+        }
     )
 
 @app.get("/health", response_model=HealthResponse)
 async def health():
+    all_systems = all([
+        classification_pipeline is not None,
+        prioritization_pipeline is not None,
+        rag_chain is not None
+    ])
     return HealthResponse(
-        status="healthy",
-        message="All systems operational",
-        version=settings.API_VERSION
+        status="healthy" if all_systems else "degraded",
+        message="All systems operational" if all_systems else "Some systems are unavailable",
+        version=settings.API_VERSION,
+        details={
+            "classification": classification_pipeline is not None,
+            "prioritization": prioritization_pipeline is not None,
+            "rag": rag_chain is not None
+        }
     )
 
 # Case classification endpoint

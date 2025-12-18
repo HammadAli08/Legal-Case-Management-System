@@ -5,10 +5,28 @@ import Classification from './components/Classification';
 import Prioritization from './components/Prioritization';
 import Chat from './components/Chat';
 
+import { legalAIService } from './services/api';
+
 function App() {
     const [activeTab, setActiveTab] = useState('home');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [chatHistory, setChatHistory] = useState([]);
+    const [systemStatus, setSystemStatus] = useState('checking');
+
+    React.useEffect(() => {
+        const checkHealth = async () => {
+            try {
+                const data = await legalAIService.healthCheck();
+                setSystemStatus(data.status === 'healthy' ? 'online' : 'degraded');
+            } catch (error) {
+                setSystemStatus('offline');
+            }
+        };
+
+        checkHealth();
+        const interval = setInterval(checkHealth, 30000); // Check every 30s
+        return () => clearInterval(interval);
+    }, []);
 
     const handleClearChat = () => {
         setChatHistory([]);
@@ -45,6 +63,7 @@ function App() {
                 setSidebarOpen={setSidebarOpen}
                 showClearButton={activeTab === 'chat'}
                 onClearChat={handleClearChat}
+                systemStatus={systemStatus}
             />
 
             <main className="flex-1 overflow-y-auto w-full relative z-10">

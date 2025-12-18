@@ -1,7 +1,7 @@
 import React from 'react';
 import { Scale, FileText, AlertCircle, MessageSquare, Menu, X, Sparkles } from 'lucide-react';
 
-const Sidebar = ({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, onClearChat, showClearButton }) => {
+const Sidebar = ({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, onClearChat, showClearButton, systemStatus }) => {
     const NavItem = ({ icon: Icon, label, id }) => (
         <button
             onClick={() => {
@@ -9,8 +9,8 @@ const Sidebar = ({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, onClear
                 if (window.innerWidth < 1024) setSidebarOpen(false);
             }}
             className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all duration-300 rounded-xl mx-2 my-1 group relative overflow-hidden ${activeTab === id
-                    ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30'
+                : 'text-white/70 hover:text-white hover:bg-white/10'
                 }`}
             style={{ width: 'calc(100% - 16px)' }}
         >
@@ -97,13 +97,20 @@ const Sidebar = ({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, onClear
                         </div>
                     )}
 
-                    {/* Footer */}
+                    {/* Footer - Dynamic Status */}
                     <div className="p-4 border-t border-white/10">
                         <div className="flex items-center justify-center gap-2">
-                            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                            <p className="text-white/40 text-xs">
-                                {sidebarOpen ? 'System Online • 2024' : ''}
-                            </p>
+                            <div className={`w-2 h-2 rounded-full animate-pulse ${systemStatus === 'online' ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' :
+                                systemStatus === 'degraded' ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]' :
+                                    'bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.5)]'
+                                }`} />
+                            {sidebarOpen && (
+                                <p className="text-white/40 text-xs font-medium uppercase tracking-wider">
+                                    {systemStatus === 'online' ? 'System Online' :
+                                        systemStatus === 'degraded' ? 'System Degraded' :
+                                            systemStatus === 'checking' ? 'Checking Status...' : 'System Offline'}
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>
