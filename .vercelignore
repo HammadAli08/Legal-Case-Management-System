@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+node_modules
+__pycache__
+*.pyc
+.env
+.env.*
+Case Cateogarization
+Case Prioritization
+Dockerfile*
+README.md

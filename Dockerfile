@@ -1,17 +1,33 @@
-# Use GitHub Container Registry mirror
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
+# Build stage
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y gcc && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Copy package files
+COPY package*.json ./
 
-# Copy and install Python dependencies
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies
+RUN npm ci
 
-# Copy backend code
-COPY backend .
+# Copy source code
+COPY . .
 
-# Don't hardcode port. Use $PORT environment variable provided by Railway (defaults to 8000)
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Build the application
+RUN npm run build
+
+# Production stage
+FROM nginx:alpine
+
+# Copy built files from builder
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
